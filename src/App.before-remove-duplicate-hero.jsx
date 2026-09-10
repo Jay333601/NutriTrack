@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 
 import Dashboard from './components/Dashboard'
+import { ExperienceHero } from './components/ui/experience-hero'
 import SpinningBorderButton from './components/ui/spinning-border-button'
 import FoodLogger from './components/FoodLogger'
 import HealthyRecipes from './components/HealthyRecipes'
@@ -146,6 +147,7 @@ export default function App() {
 
           {activePage === 'dashboard' && (
             <div className="-mx-5 -mt-8 md:-mx-8">
+              <ExperienceHero onLogFood={() => navigate('food')} />
               <div className="mx-auto max-w-[1400px] p-5 md:p-8">
                 <Dashboard onNavigate={navigate} />
               </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import { motion } from 'framer-motion'
 import {
   ArrowUpRight,
@@ -12,55 +12,43 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
-const API_URL = 'http://localhost:4000/api'
+function loadEntries() {
+  try {
+    return JSON.parse(
+      localStorage.getItem('nutrition-entries') || '[]'
+    )
+  } catch {
+    return []
+  }
+}
 
 export default function Dashboard({ onNavigate }) {
+  const entries = loadEntries()
   const today = todayStr()
 
-  const [dashboard, setDashboard] = useState({
-    logs: [],
-    totals: {
-      kcal: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-    },
-  })
+  const todayEntries = useMemo(
+    () => entries.filter((entry) => entry.date === today),
+    [entries, today]
+  )
 
-  useEffect(() => {
-    let cancelled = false
-
-    fetch(`${API_URL}/dashboard?date=${encodeURIComponent(today)}`)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error('Failed to load dashboard')
+  const totals = useMemo(
+    () =>
+      todayEntries.reduce(
+        (total, entry) => ({
+          kcal: total.kcal + Number(entry.kcal || 0),
+          protein: total.protein + Number(entry.protein || 0),
+          carbs: total.carbs + Number(entry.carbs || 0),
+          fat: total.fat + Number(entry.fat || 0),
+        }),
+        {
+          kcal: 0,
+          protein: 0,
+          carbs: 0,
+          fat: 0,
         }
-        return response.json()
-      })
-      .then((data) => {
-        if (!cancelled && data?.success) {
-          setDashboard({
-            logs: Array.isArray(data.logs) ? data.logs : [],
-            totals: {
-              kcal: Number(data.totals?.kcal || 0),
-              protein: Number(data.totals?.protein || 0),
-              carbs: Number(data.totals?.carbs || 0),
-              fat: Number(data.totals?.fat || 0),
-            },
-          })
-        }
-      })
-      .catch((error) => {
-        console.error('NutriTrack: failed to load dashboard', error)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [today])
-
-  const todayEntries = dashboard.logs
-  const totals = dashboard.totals
+      ),
+    [todayEntries]
+  )
 
   const recentEntries = [...todayEntries].reverse().slice(0, 5)
 

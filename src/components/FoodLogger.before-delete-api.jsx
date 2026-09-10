@@ -140,35 +140,10 @@ export default function FoodLogger() {
     }
   }
 
-  async function removeEntry(id) {
-    setMessage('')
-
-    try {
-      const response = await fetch(
-        `${API_URL}/logs/${encodeURIComponent(id)}`,
-        {
-          method: 'DELETE',
-        }
-      )
-
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        setMessage(data.message || 'Could not remove food.')
-        return
-      }
-
-      setEntries((current) =>
-        current.filter((entry) => String(entry.id) !== String(id))
-      )
-    } catch (error) {
-      console.error('NutriTrack: failed to remove log', error)
-      setMessage(
-        'Could not connect to the NutriTrack backend.'
-      )
-    }
+  function removeEntry(id) {
+    const nextEntries = entries.filter((entry) => entry.id !== id)
+    setEntries(nextEntries)
   }
-
 
   return (
     <div

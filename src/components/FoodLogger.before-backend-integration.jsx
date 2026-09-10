@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Search, Plus, X, Utensils } from 'lucide-react'
 import { FOOD_DB_COMPLETE } from '../data/foods'
 import SpinningBorderButton from './ui/spinning-border-button'
-
-const API_URL = 'http://localhost:4000/api'
 
 const MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Snack']
 
@@ -11,22 +9,16 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
-async function loadEntries() {
+function loadEntries() {
   try {
-    const response = await fetch(
-      `${API_URL}/logs?date=${encodeURIComponent(todayStr())}`
-    )
-
-    if (!response.ok) {
-      throw new Error('Failed to load food logs')
-    }
-
-    const data = await response.json()
-    return Array.isArray(data.logs) ? data.logs : []
-  } catch (error) {
-    console.error('NutriTrack: failed to load logs', error)
+    return JSON.parse(localStorage.getItem('nutrition-entries') || '[]')
+  } catch {
     return []
   }
+}
+
+function saveEntries(entries) {
+  localStorage.setItem('nutrition-entries', JSON.stringify(entries))
 }
 
 export default function FoodLogger() {
@@ -34,22 +26,8 @@ export default function FoodLogger() {
   const [weightInput, setWeightInput] = useState('')
   const [meal, setMeal] = useState('Breakfast')
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [entries, setEntries] = useState([])
+  const [entries, setEntries] = useState(loadEntries)
   const [message, setMessage] = useState('')
-
-  useEffect(() => {
-    let cancelled = false
-
-    loadEntries().then((loadedEntries) => {
-      if (!cancelled) {
-        setEntries(loadedEntries)
-      }
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   const suggestions = useMemo(() => {
     const query = foodInput.trim().toLowerCase()
@@ -76,7 +54,7 @@ export default function FoodLogger() {
     setMessage('')
   }
 
-  async function addFood() {
+  function addFood() {
     setMessage('')
 
     const name = foodInput.trim()
@@ -93,10 +71,7 @@ export default function FoodLogger() {
     }
 
     const food = FOOD_DB_COMPLETE.find(
-      (item) =>
-        item &&
-        typeof item.name === 'string' &&
-        item.name.toLowerCase() === name.toLowerCase()
+      (item) => item.name.toLowerCase() === name.toLowerCase()
     )
 
     if (!food) {
@@ -104,71 +79,38 @@ export default function FoodLogger() {
       return
     }
 
-    try {
-      const response = await fetch(`${API_URL}/logs`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          food: food.name,
-          weight,
-          meal,
-          date: todayStr(),
-        }),
-      })
+    const factor = weight / 100
 
-      const data = await response.json()
-
-      if (!response.ok || !data.success || !data.entry) {
-        setMessage(data.message || 'Could not add food.')
-        return
-      }
-
-      setEntries((current) => [...current, data.entry])
-
-      setFoodInput('')
-      setWeightInput('')
-      setShowSuggestions(false)
-
-      setMessage(`${food.name} added to ${meal}.`)
-    } catch (error) {
-      console.error('NutriTrack: failed to add food', error)
-      setMessage(
-        'Could not connect to the NutriTrack backend.'
-      )
+    const entry = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      date: todayStr(),
+      meal,
+      food: food.name,
+      weight,
+      kcal: Math.round(food.kcal * factor),
+      protein: +(food.protein * factor).toFixed(1),
+      carbs: +(food.carbs * factor).toFixed(1),
+      fat: +(food.fat * factor).toFixed(1),
+      fiber: +(food.fiber * factor).toFixed(1),
+      sodium: Math.round(food.sodium * factor),
     }
+
+    const nextEntries = [...entries, entry]
+
+    setEntries(nextEntries)
+    saveEntries(nextEntries)
+
+    setFoodInput('')
+    setWeightInput('')
+    setShowSuggestions(false)
+    setMessage(`${food.name} added to ${meal}.`)
   }
 
-  async function removeEntry(id) {
-    setMessage('')
-
-    try {
-      const response = await fetch(
-        `${API_URL}/logs/${encodeURIComponent(id)}`,
-        {
-          method: 'DELETE',
-        }
-      )
-
-      const data = await response.json()
-
-      if (!response.ok || !data.success) {
-        setMessage(data.message || 'Could not remove food.')
-        return
-      }
-
-      setEntries((current) =>
-        current.filter((entry) => String(entry.id) !== String(id))
-      )
-    } catch (error) {
-      console.error('NutriTrack: failed to remove log', error)
-      setMessage(
-        'Could not connect to the NutriTrack backend.'
-      )
-    }
+  function removeEntry(id) {
+    const nextEntries = entries.filter((entry) => entry.id !== id)
+    setEntries(nextEntries)
+    saveEntries(nextEntries)
   }
-
 
   return (
     <div
